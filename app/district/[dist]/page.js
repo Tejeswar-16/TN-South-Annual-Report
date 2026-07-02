@@ -1,18 +1,18 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import KpiCard from '../components/KpiCard';
+import { useParams, useRouter } from "next/navigation"
+import KpiCard from '../../components/KpiCard';
 import { useEffect, useState } from "react";
-import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "../firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../firebase/config";
 import { Building2, Users, GraduationCap, Sparkles } from "lucide-react";
-import GroupBarChart from '../components/GroupBarChart';
-import GenderDonutChart from '../components/GenderDonutChart';
-import CentreTypeTable from '../components/CentreTypeTable';
-import ActivityCard from '../components/ActivityCard';
-import ActivityModal from '../components/ActivityModal';
+import GroupBarChart from '../../components/GroupBarChart';
+import GenderDonutChart from '../../components/GenderDonutChart';
+import CentreTypeTable from '../../components/CentreTypeTable';
+import ActivityCard from '../../components/ActivityCard';
+import ActivityModal from '../../components/ActivityModal';
 
-export default function DashboardClient(){
+export default function Dist(){
 
     const [statsCentres,setStatsCentres] = useState([]);
     const [statsGurus,setStatsGurus] = useState([]);
@@ -28,104 +28,31 @@ export default function DashboardClient(){
     const [categoryFilter, setCategoryFilter] = useState("all");
 
     const router = useRouter();
-    const result = "Annual Report";
+
+    const params = useParams();
+    const district = params.dist.replace('-',' ')
+    const result = district.split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
 
     useEffect(() => {
         async function fetchData(){
             try{
                 setLoading(true);
-                const q = query(
-                  collection(db,"district")
-                )
-                const querySnapshot = await getDocs(q);
-                let centres = {};
-                let gurus = {};
-                let students = {};
-                let valueAddtions = {}
-                let allActivities = [];
+                const docRef = doc(db, "district", result);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()){
+                    const data = docSnap.data();
+                    setStatsCentres(Object.entries(data.centre));
+                    setStatsGurus(Object.entries(data.gurus));
+                    setStatsStudents(Object.entries(data.students));
+                    setStatsValueAdditions(Object.entries(data.values));
 
-                querySnapshot.forEach((docSnap) => {
-                  const data = docSnap.data();
-
-                  if (data.centre){
-                    Object.entries(data.centre).forEach(([type,groups]) => {
-                      if (!centres[type])
-                        centres[type] = {}
-
-                      Object.entries(groups).forEach(([group,value]) => {
-                        centres[type][group] = (Number(centres[type][group] || 0)) + Number(value || 0);
-                      })
-                    })
-                  }
-
-                  if (data.gurus) {
-                    Object.entries(data.gurus).forEach(([gender, groups]) => {
-                        if (!gurus[gender]) gurus[gender] = {};
-
-                        Object.entries(groups).forEach(([group, value]) => {
-                            gurus[gender][group] =
-                                (Number(gurus[gender][group] || 0)) +
-                                Number(value || 0);
-                        });
-                    });
-                  }
-
-                  if (data.students) {
-                    Object.entries(data.students).forEach(([category, groups]) => {
-                        if (!students[category]) students[category] = {};
-
-                        Object.entries(groups).forEach(([group, value]) => {
-                            students[category][group] =
-                                (Number(students[category][group] || 0)) +
-                                Number(value || 0);
-                        });
-                    });
-                  }
-
-                  if (data.valueAddtions) {
-                    data.valueAddtions.forEach((item) => {
-                        const existing = valueAddtions[item.metric];
-
-                        if (!existing) {
-                            valueAddtions[item.metric] = {
-                                metric: item.metric,
-                                group1: Number(item.group1) || 0,
-                                group2: Number(item.group2) || 0,
-                                group3: Number(item.group3) || 0,
-                                notes: item.notes || "",
-                            };
-                        } else {
-                            existing.group1 += Number(item.group1) || 0;
-                            existing.group2 += Number(item.group2) || 0;
-                            existing.group3 += Number(item.group3) || 0;
-
-                            if (item.notes) {
-                                existing.notes +=
-                                    (existing.notes ? "\n" : "") + item.notes;
-                            }
-                        }
-                    });
+                    // Normalize activities (support legacy "images" field) and fall back to []
+                    const loadedActs = (data.activities || []).map(act => ({
+                        ...act,
+                        photoUrls: act.photoUrls || act.images || [],
+                    }));
+                    setActivities(loadedActs);
                 }
-
-                  if (data.activities) {
-                    data.activities.forEach((activity) => {
-                        allActivities.push({
-                            ...activity,
-                            district: docSnap.id,
-                            photoUrls:
-                                activity.photoUrls ||
-                                activity.images ||
-                                [],
-                        });
-                    });
-                  }
-
-                  setStatsCentres(Object.entries(centres));
-                  setStatsGurus(Object.entries(gurus));
-                  setStatsStudents(Object.entries(students));
-                  setStatsValueAdditions(Object.values(valueAddtions));
-                  setActivities(allActivities);
-                })
             }
             catch(err){
                 alert(err.message);
@@ -245,7 +172,7 @@ export default function DashboardClient(){
 
     const allActivities = activities.map(act => ({
         ...act,
-        district: act.district || "All District",
+        district: result,
         dateRange: act.date
             ? new Date(act.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
             : (act.dateRange || ''),
@@ -260,10 +187,10 @@ export default function DashboardClient(){
     return (
         <>
             <div className="w-full font-sans">
-                <div className="flex flex-col p-4 md:p-0 ml-0 mr-0 md:ml-10 md:mr-10 md:flex-row justify-between items-start lg:items-center gap-6 pb-6 border-b border-slate-100">
-                    <div className="space-y-1.5 flex flex-col items-center md:items-start text-center md:text-left mx-auto md:mx-0">
-                        <h1 className=" text-2xl md:text-3xl text-slate-800 font-medium leading-tight">
-                          Sri Sathya Sai Balvikas
+                <div className="flex flex-col p-4 md:p-8 md:flex-row justify-between items-start lg:items-center gap-6 pb-6 border-b border-slate-100">
+                    <div className="space-y-1.5">
+                        <h1 className="mx-auto flex justify-center text-2xl md:text-3xl font-medium text-slate-800 leading-tight">
+                        Sri Sathya Sai Balvikas
                         </h1>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-sm font-medium">
                         <span className="mx-auto flex justify-center text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold">Tamil Nadu South</span>
@@ -271,12 +198,12 @@ export default function DashboardClient(){
                         </div>
                     </div>
                     <div className='flex flex-row gap-x-4 justify-center mx-auto md:mx-0'>
-                        <button onClick={() => router.push(`/district`)} className='font-semibold text-violet-700 bg-violet-100 p-1 md:p-2 cursor-pointer hover:bg-violet-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>District-wise Statistics</button>
-                        <button onClick={() => router.push(`/manage`)} className='font-semibold text-yellow-700 bg-yellow-100 p-1 md:p-2 cursor-pointer hover:bg-yellow-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Manage Statistics</button>
+                        <button onClick={() => router.push('/')} className='font-semibold text-yellow-700 bg-yellow-100 p-1 md:p-2 cursor-pointer hover:bg-yellow-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Dashboard</button>
+                        <button onClick={() => router.push(`/district/${params.dist}/statistics`)} className='font-semibold text-violet-700 bg-violet-100 p-1 md:p-2 cursor-pointer hover:bg-violet-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Manage Statistics</button>
                     </div>
                 </div>
                 <div className="m-4 md:m-8 bg-gray-50 shadow-xl shadow-gray-200 p-4 md:p-6 rounded-xl">
-                    <h1 className="text-2xl font-bold text-center mb-8">Tamil Nadu South Annual Report Dashboard</h1>
+                    <h1 className="text-2xl font-bold text-center mb-8">{result} District Dashboard</h1>
 
                     {/* KPI Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
@@ -370,57 +297,57 @@ export default function DashboardClient(){
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                          {statsValueAdditions.map((item, index) => {
-                                const g1 = Number(item.group1 || 0);
-                                const g2 = Number(item.group2 || 0);
-                                const g3 = Number(item.group3 || 0);
+                        {statsValueAdditions.map(([title, values]) => {
+                            const g1 = Number(values["G1 / Male / Boys"] || 0);
+                            const g2 = Number(values["G2 / Female / Girls"] || 0);
+                            const g3 = Number(values["Group III"] || 0);
 
-                                const total = g1 + g2 + g3;
+                            const total = g1 + g2 + g3;
 
-                                return (
-                                    <div
-                                        key={index}
-                                        className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6"
-                                    >
-                                        <h4 className="text-lg font-semibold text-slate-800 mb-5">
-                                            {item.metric}
-                                        </h4>
+                            return (
+                            <div
+                                key={title}
+                                className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6"
+                            >
+                                <h4 className="text-lg font-semibold text-slate-800 mb-5">
+                                {title}
+                                </h4>
 
-                                        <div className="space-y-3 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Group I</span>
-                                                <span className="font-semibold">{g1}</span>
-                                            </div>
+                                <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Group I</span>
+                                    <span className="font-semibold">{g1}</span>
+                                </div>
 
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Group II</span>
-                                                <span className="font-semibold">{g2}</span>
-                                            </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Group II</span>
+                                    <span className="font-semibold">{g2}</span>
+                                </div>
 
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Group III</span>
-                                                <span className="font-semibold">{g3}</span>
-                                            </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Group III</span>
+                                    <span className="font-semibold">{g3}</span>
+                                </div>
 
-                                            <hr className="my-2" />
+                                <hr className="my-2" />
 
-                                            <div className="flex justify-between text-base">
-                                                <span className="font-semibold">Total</span>
-                                                <span className="text-blue-600 font-bold">{total}</span>
-                                            </div>
+                                <div className="flex justify-between text-base">
+                                    <span className="font-semibold">Total</span>
+                                    <span className="text-blue-600 font-bold">{total}</span>
+                                </div>
 
-                                            {item.notes && (
-                                                <div className="mt-4 rounded-lg bg-slate-50 p-3">
-                                                    <p className="text-xs text-slate-400 mb-1">Notes</p>
-                                                    <p className="text-sm text-slate-700">
-                                                        {item.notes}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
+                                {values["Notes"] && (
+                                    <div className="mt-4 rounded-lg bg-slate-50 p-3">
+                                    <p className="text-xs text-slate-400 mb-1">Notes</p>
+                                    <p className="text-sm text-slate-700">
+                                        {values["Notes"]}
+                                    </p>
                                     </div>
-                                );
-                            })}
+                                )}
+                                </div>
+                            </div>
+                            );
+                        })}
                         </div>
                     </div>
                     )}

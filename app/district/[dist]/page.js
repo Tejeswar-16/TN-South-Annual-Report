@@ -4,13 +4,14 @@ import { useParams, useRouter } from "next/navigation"
 import KpiCard from '../../components/KpiCard';
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../firebase/config";
+import { auth, db } from "../../firebase/config";
 import { Building2, Users, GraduationCap, Sparkles } from "lucide-react";
 import GroupBarChart from '../../components/GroupBarChart';
 import GenderDonutChart from '../../components/GenderDonutChart';
 import CentreTypeTable from '../../components/CentreTypeTable';
 import ActivityCard from '../../components/ActivityCard';
 import ActivityModal from '../../components/ActivityModal';
+import { signOut } from "firebase/auth";
 
 export default function Dist(){
 
@@ -183,6 +184,16 @@ export default function Dist(){
     const filteredActivities = categoryFilter === "all"
         ? allActivities
         : allActivities.filter(a => a.category === categoryFilter);
+    
+    async function handleLogout(){
+        await signOut(auth)
+        .then(() => {
+            router.push("/");
+        })
+        .catch((error) => {
+            alert(error.message);
+        });
+    }
 
     return (
         <>
@@ -198,8 +209,8 @@ export default function Dist(){
                         </div>
                     </div>
                     <div className='flex flex-row gap-x-4 justify-center mx-auto md:mx-0'>
-                        <button onClick={() => router.push('/')} className='font-semibold text-yellow-700 bg-yellow-100 p-1 md:p-2 cursor-pointer hover:bg-yellow-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Dashboard</button>
                         <button onClick={() => router.push(`/district/${params.dist}/statistics`)} className='font-semibold text-violet-700 bg-violet-100 p-1 md:p-2 cursor-pointer hover:bg-violet-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Manage Statistics</button>
+                        <button onClick={handleLogout} className='font-semibold text-red-700 bg-red-100 p-1 md:p-2 cursor-pointer hover:bg-red-200 hover:scale-105 rounded-xl trasition duration-300 ease-in-out'>Logout</button>
                     </div>
                 </div>
                 <div className="m-4 md:m-8 bg-gray-50 shadow-xl shadow-gray-200 p-4 md:p-6 rounded-xl">

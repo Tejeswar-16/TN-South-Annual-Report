@@ -953,7 +953,8 @@ export default function Statistics(){
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</label>
                             <input
-                                type="date"
+                                type="text"
+                                placeholder="May 2026"
                                 className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400 transition-colors"
                                 value={activityForm.date}
                                 onChange={(e) => setActivityForm({ ...activityForm, date: e.target.value })}
